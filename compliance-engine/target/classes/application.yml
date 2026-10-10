@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: compliance-engine
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/compliance_db
+    username: compliance_user
+    password: local_dev_password
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+  flyway:
+    enabled: true
+
+server:
+  port: 8080
