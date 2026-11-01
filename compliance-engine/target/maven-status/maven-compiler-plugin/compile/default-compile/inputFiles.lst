@@ -1,1 +1,11 @@
 C:\Users\Swara Deshpande\compliance-engine\Procurement-Platform\compliance-engine\src\main\java\com\procurement\compliance_engine\ComplianceEngineApplication.java
+C:\Users\Swara Deshpande\compliance-engine\Procurement-Platform\compliance-engine\src\main\java\com\procurement\compliance_engine\entity\Bid.java
+C:\Users\Swara Deshpande\compliance-engine\Procurement-Platform\compliance-engine\src\main\java\com\procurement\compliance_engine\entity\BidderProfile.java
+C:\Users\Swara Deshpande\compliance-engine\Procurement-Platform\compliance-engine\src\main\java\com\procurement\compliance_engine\entity\Organization.java
+C:\Users\Swara Deshpande\compliance-engine\Procurement-Platform\compliance-engine\src\main\java\com\procurement\compliance_engine\entity\Tender.java
+C:\Users\Swara Deshpande\compliance-engine\Procurement-Platform\compliance-engine\src\main\java\com\procurement\compliance_engine\entity\TenderRequirement.java
+C:\Users\Swara Deshpande\compliance-engine\Procurement-Platform\compliance-engine\src\main\java\com\procurement\compliance_engine\repository\BidderProfileRepository.java
+C:\Users\Swara Deshpande\compliance-engine\Procurement-Platform\compliance-engine\src\main\java\com\procurement\compliance_engine\repository\BidRepository.java
+C:\Users\Swara Deshpande\compliance-engine\Procurement-Platform\compliance-engine\src\main\java\com\procurement\compliance_engine\repository\OrganizationRepository.java
+C:\Users\Swara Deshpande\compliance-engine\Procurement-Platform\compliance-engine\src\main\java\com\procurement\compliance_engine\repository\TenderRepository.java
+C:\Users\Swara Deshpande\compliance-engine\Procurement-Platform\compliance-engine\src\main\java\com\procurement\compliance_engine\repository\TenderRequirementRepository.java

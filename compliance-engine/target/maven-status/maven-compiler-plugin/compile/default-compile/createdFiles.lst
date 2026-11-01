@@ -1,1 +1,11 @@
 com\procurement\compliance_engine\ComplianceEngineApplication.class
+com\procurement\compliance_engine\entity\Tender.class
+com\procurement\compliance_engine\repository\TenderRequirementRepository.class
+com\procurement\compliance_engine\repository\BidderProfileRepository.class
+com\procurement\compliance_engine\entity\Organization.class
+com\procurement\compliance_engine\entity\Bid.class
+com\procurement\compliance_engine\entity\BidderProfile.class
+com\procurement\compliance_engine\repository\BidRepository.class
+com\procurement\compliance_engine\entity\TenderRequirement.class
+com\procurement\compliance_engine\repository\TenderRepository.class
+com\procurement\compliance_engine\repository\OrganizationRepository.class
