@@ -9,6 +9,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.Generated;
+import org.hibernate.generator.EventType;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -49,5 +51,6 @@ public class Tender {
     private String status = "DRAFT";
 
     @Column(name = "created_at", insertable = false, updatable = false)
+    @Generated(event = EventType.INSERT)
     private OffsetDateTime createdAt;
 }

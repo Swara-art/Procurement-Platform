@@ -9,4 +9,6 @@ import java.util.UUID;
 public interface BidderProfileRepository extends JpaRepository<BidderProfile, UUID> {
 
     Optional<BidderProfile> findByOrganizationId(UUID organizationId);
+
+    boolean existsByOrganizationId(UUID organizationId);
 }

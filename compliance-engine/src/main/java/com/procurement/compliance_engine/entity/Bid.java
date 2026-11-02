@@ -12,6 +12,7 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -32,6 +33,9 @@ public class Bid {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "bidder_id", nullable = false)
     private BidderProfile bidder;
+
+    @Column(name = "quoted_amount", precision = 18, scale = 2)
+    private BigDecimal quotedAmount;
 
     @Column(name = "submitted_at")
     private OffsetDateTime submittedAt;

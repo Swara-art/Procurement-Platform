@@ -6,6 +6,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.Generated;
+import org.hibernate.generator.EventType;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -32,5 +34,6 @@ public class Organization {
     private String registrationNumber;
 
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
+    @Generated(event = EventType.INSERT)
     private OffsetDateTime createdAt;
 }

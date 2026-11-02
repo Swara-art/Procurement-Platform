@@ -9,6 +9,8 @@ import java.util.UUID;
 
 public interface BidRepository extends JpaRepository<Bid, UUID> {
 
+    boolean existsByTenderIdAndBidderId(UUID tenderId, UUID bidderId);
+
     List<Bid> findByTenderId(UUID tenderId);
 
     List<Bid> findByBidderId(UUID bidderId);
