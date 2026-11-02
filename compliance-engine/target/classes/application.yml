@@ -5,6 +5,12 @@ spring:
   application:
     name: compliance-engine
 
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 12MB
+
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
@@ -20,8 +26,34 @@ spring:
     locations: classpath:db/migration
     validate-migration-naming: true
 
+  ai:
+    model:
+      embedding: openai
+    openai:
+      # Keep OpenAI auto-configuration constructible during normal local startup.
+      # AI ingestion endpoints remain disabled unless the `ai` profile is active.
+      api-key: ${OPENAI_API_KEY:local-development-key}
+      embedding:
+        model: text-embedding-3-small
+        dimensions: 1536
+    vectorstore:
+      pgvector:
+        dimensions: 1536
+        distance-type: COSINE_DISTANCE
+        initialize-schema: false
+
 server:
   port: ${PORT:8080}
 
+logging:
+  level:
+    org.springframework.security: WARN
+    com.procurement.compliance_engine: DEBUG
+    org.springframework.web: WARN
+
 jwt:
   secret: ${JWT_SECRET}
+
+app:
+  storage:
+    upload-dir: ${APP_UPLOAD_DIR:./private-uploads}

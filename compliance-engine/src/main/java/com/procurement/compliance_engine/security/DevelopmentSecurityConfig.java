@@ -18,15 +18,20 @@ public class DevelopmentSecurityConfig {
                         "/api/v1/organizations/**",
                         "/api/v1/tenders",
                         "/api/v1/tenders/**",
-                        "/api/v1/bids/**"
+                        "/api/v1/bids",
+                        "/api/v1/bids/**",
+                        "/api/v1/documents/**"
                 ))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/error").permitAll()
                         .requestMatchers(
                                 "/api/v1/organizations",
                                 "/api/v1/organizations/**",
                                 "/api/v1/tenders",
                                 "/api/v1/tenders/**",
-                                "/api/v1/bids/**"
+                                "/api/v1/bids",
+                                "/api/v1/bids/**",
+                                "/api/v1/documents/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

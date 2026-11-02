@@ -37,25 +37,39 @@ public class BidService {
 
     @Transactional
     public BidResponse submitBid(UUID tenderId, SubmitBidRequest request) {
+        Bid bid = createBid(tenderId, request, "SUBMITTED");
+        bid.setSubmittedAt(OffsetDateTime.now());
+        return saveBid(bid);
+    }
+
+    @Transactional
+    public BidResponse createDraftBid(UUID tenderId, SubmitBidRequest request) {
+        return saveBid(createBid(tenderId, request, "DRAFT"));
+    }
+
+    @Transactional
+    public BidResponse submitDraftBid(UUID bidId) {
+        Bid bid = bidRepository.findById(bidId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Bid not found"));
+
+        if (!"DRAFT".equals(bid.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Only DRAFT bids can be submitted");
+        }
+
+        ensureTenderAcceptsBids(bid.getTender());
+        bid.setStatus("SUBMITTED");
+        bid.setSubmittedAt(OffsetDateTime.now());
+        return saveBid(bid);
+    }
+
+    private Bid createBid(UUID tenderId, SubmitBidRequest request, String status) {
         Tender tender = tenderRepository.findById(tenderId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "Tender not found"
                 ));
 
-        if (!"PUBLISHED".equals(tender.getStatus())) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Bids can only be submitted to published tenders"
-            );
-        }
-
-        if (!tender.getSubmissionDeadline().isAfter(OffsetDateTime.now())) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Tender submission deadline has passed"
-            );
-        }
+        ensureTenderAcceptsBids(tender);
 
         BidderProfile bidderProfile = bidderProfileRepository
                 .findById(request.bidderProfileId())
@@ -82,9 +96,23 @@ public class BidService {
         bid.setTender(tender);
         bid.setBidder(bidderProfile);
         bid.setQuotedAmount(request.quotedAmount());
-        bid.setStatus("SUBMITTED");
-        bid.setSubmittedAt(OffsetDateTime.now());
+        bid.setStatus(status);
+        return bid;
+    }
 
+    private void ensureTenderAcceptsBids(Tender tender) {
+        if (!"PUBLISHED".equals(tender.getStatus())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Bids can only be submitted to published tenders"
+            );
+        }
+        if (!tender.getSubmissionDeadline().isAfter(OffsetDateTime.now())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tender submission deadline has passed");
+        }
+    }
+
+    private BidResponse saveBid(Bid bid) {
         try {
             return BidResponse.from(bidRepository.saveAndFlush(bid));
         } catch (DataIntegrityViolationException ex) {

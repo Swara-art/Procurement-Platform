@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -32,6 +33,20 @@ public class BidController {
             @Valid @RequestBody SubmitBidRequest request
     ) {
         return service.submitBid(tenderId, request);
+    }
+
+    @PostMapping("/api/v1/tenders/{tenderId}/bids/draft")
+    @ResponseStatus(HttpStatus.CREATED)
+    public BidResponse createDraft(
+            @PathVariable UUID tenderId,
+            @Valid @RequestBody SubmitBidRequest request
+    ) {
+        return service.createDraftBid(tenderId, request);
+    }
+
+    @PatchMapping("/api/v1/bids/{bidId}/submit")
+    public BidResponse submitDraft(@PathVariable UUID bidId) {
+        return service.submitDraftBid(bidId);
     }
 
     @GetMapping("/api/v1/tenders/{tenderId}/bids")

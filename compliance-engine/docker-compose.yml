@@ -1,7 +1,7 @@
 
 services:
   postgres:
-    image: postgres:17
+    image: pgvector/pgvector:pg17-trixie
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USERNAME}
