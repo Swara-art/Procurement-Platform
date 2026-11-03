@@ -9,7 +9,6 @@ import java.util.UUID;
 
 public record SubmitBidRequest(
 
-        @NotNull(message = "Bidder profile ID is required")
         UUID bidderProfileId,
 
         @NotNull(message = "Quoted amount is required")

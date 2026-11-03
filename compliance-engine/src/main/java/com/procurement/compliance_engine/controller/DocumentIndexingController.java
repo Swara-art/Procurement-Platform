@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @Profile("dev")
@@ -23,6 +24,7 @@ public class DocumentIndexingController {
     }
 
     @PostMapping("/{documentId}/index")
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','PROCUREMENT_OFFICER','EVALUATION_OFFICER')")
     public Map<String, Object> index(@PathVariable UUID documentId) throws IOException {
         int chunkCount = indexingService.indexDocument(documentId);
         return Map.of(

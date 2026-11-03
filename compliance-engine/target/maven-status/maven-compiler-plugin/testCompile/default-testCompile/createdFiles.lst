@@ -1,2 +1,3 @@
 com\procurement\compliance_engine\ComplianceEngineApplicationTests.class
+com\procurement\compliance_engine\security\JwtServiceTest.class
 com\procurement\compliance_engine\service\PdfChunkingServiceTest.class

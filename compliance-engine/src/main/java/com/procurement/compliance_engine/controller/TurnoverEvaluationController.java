@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @Profile("dev & ai")
@@ -22,6 +23,7 @@ public class TurnoverEvaluationController {
     }
 
     @PostMapping("/{bidId}/evaluate/turnover")
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','PROCUREMENT_OFFICER','EVALUATION_OFFICER')")
     public TurnoverEvaluationResponse evaluateTurnover(@PathVariable UUID bidId) {
         return evaluationService.evaluate(bidId);
     }

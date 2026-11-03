@@ -15,28 +15,34 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.UUID;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/api/v1/tenders/{tenderId}/requirements")
 public class TenderRequirementController {
 
     private final TenderRequirementService service;
+    private final com.procurement.compliance_engine.service.TenderService tenderService;
 
-    public TenderRequirementController(TenderRequirementService service) {
+    public TenderRequirementController(TenderRequirementService service, com.procurement.compliance_engine.service.TenderService tenderService) {
         this.service = service;
+        this.tenderService = tenderService;
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','PROCUREMENT_OFFICER')")
     @ResponseStatus(HttpStatus.CREATED)
     public TenderRequirementResponse create(
             @PathVariable UUID tenderId,
             @Valid @RequestBody CreateTenderRequirementRequest request
     ) {
+        tenderService.assertCanView(tenderService.getTenderEntity(tenderId));
         return service.createRequirement(tenderId, request);
     }
 
     @GetMapping
     public List<TenderRequirementResponse> getAll(@PathVariable UUID tenderId) {
+        tenderService.assertCanView(tenderService.getTenderEntity(tenderId));
         return service.getRequirements(tenderId);
     }
 
@@ -45,6 +51,7 @@ public class TenderRequirementController {
             @PathVariable UUID tenderId,
             @PathVariable UUID requirementId
     ) {
+        tenderService.assertCanView(tenderService.getTenderEntity(tenderId));
         return service.getRequirementById(tenderId, requirementId);
     }
 }

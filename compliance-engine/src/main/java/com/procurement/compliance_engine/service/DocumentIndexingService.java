@@ -25,6 +25,7 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import com.procurement.compliance_engine.security.CurrentUser;
 
 @Service
 @Profile("ai")
@@ -54,7 +55,12 @@ public class DocumentIndexingService {
         String stage = "loading document metadata";
         log.info("Starting indexing for document {}", documentId);
         try {
-            BidDocument bidDocument = documentRepository.findById(documentId)
+            var actor=CurrentUser.get();
+            if(actor==null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Authentication required");
+            var scopedDocument="SYSTEM_ADMIN".equals(actor.role())?documentRepository.findById(documentId)
+                    : ("PROCUREMENT_OFFICER".equals(actor.role())||"EVALUATION_OFFICER".equals(actor.role()))?documentRepository.findByIdAndAuthorityAfterDeadline(documentId,actor.organizationId())
+                    : java.util.Optional.<BidDocument>empty();
+            BidDocument bidDocument = scopedDocument
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found"));
             log.info("Document found; storage key={}", bidDocument.getStorageKey());
 

@@ -12,6 +12,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.UUID;
+import com.procurement.compliance_engine.security.CurrentUser;
 
 @Service
 public class OrganizationService {
@@ -53,7 +54,11 @@ public class OrganizationService {
 
     @Transactional(readOnly = true)
     public List<OrganizationResponse> getAllOrganizations() {
-        return repository.findAll()
+        var actor=CurrentUser.get();
+        if(actor==null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Authentication required");
+        var all="PROCUREMENT_OFFICER".equals(actor.role())
+                ? repository.findAllById(List.of(actor.organizationId())) : "SYSTEM_ADMIN".equals(actor.role())?repository.findAll():List.<Organization>of();
+        return all
                 .stream()
                 .map(OrganizationResponse::from)
                 .toList();
@@ -61,12 +66,15 @@ public class OrganizationService {
 
     @Transactional(readOnly = true)
     public OrganizationResponse getOrganizationById(UUID id) {
-        Organization organization = repository.findById(id)
+        var actor=CurrentUser.get();
+        if(actor==null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Authentication required");
+        if(actor!=null && "PROCUREMENT_OFFICER".equals(actor.role()) && !id.equals(actor.organizationId())) throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Organization not found");
+        UUID scopedId=actor!=null && "PROCUREMENT_OFFICER".equals(actor.role())?actor.organizationId():id;
+        Organization organization = repository.findById(scopedId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "Organization not found"
                 ));
-
         return OrganizationResponse.from(organization);
     }
 }

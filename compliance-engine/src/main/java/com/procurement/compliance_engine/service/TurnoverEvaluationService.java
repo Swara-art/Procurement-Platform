@@ -1,6 +1,8 @@
 package com.procurement.compliance_engine.service;
 
 import com.procurement.compliance_engine.dto.TurnoverEvaluationResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
@@ -12,6 +14,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import com.procurement.compliance_engine.security.CurrentUser;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -19,9 +22,14 @@ import java.util.regex.Pattern;
 @Profile("ai")
 public class TurnoverEvaluationService {
 
+    private static final Logger log = LoggerFactory.getLogger(TurnoverEvaluationService.class);
+
     private static final Pattern AVERAGE_PATTERN = Pattern.compile(
-            "(?:three|3)[- ]year\\s+average(?:\\s+annual)?(?:\\s+turnover)?\\s*[:=]?\\s*"
-                    + "(?:INR|Rs\\.?|₹)?\\s*([\\d,]+(?:\\.\\d+)?)\\s*(crore|lakh)",
+            "\\bthree\\s*[-–]?\\s*year\\s+average\\b"
+                    + "\\s*[:=-]?\\s*"
+                    + "(?:INR\\s*|Rs\\.?\\s*|₹\\s*)?"
+                    + "([\\d,]+(?:\\.\\d+)?)\\s*"
+                    + "(crore|crores|lakh|lakhs)\\b",
             Pattern.CASE_INSENSITIVE
     );
 
@@ -46,6 +54,10 @@ public class TurnoverEvaluationService {
     }
 
     public TurnoverEvaluationResponse evaluate(UUID bidId) {
+        var actor=CurrentUser.get();
+        if(actor==null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Authentication required");
+        if(!"SYSTEM_ADMIN".equals(actor.role()) && !"PROCUREMENT_OFFICER".equals(actor.role()) && !"EVALUATION_OFFICER".equals(actor.role())) throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Evaluation access denied");
+        UUID authorityScope=actor!=null && ("PROCUREMENT_OFFICER".equals(actor.role())||"EVALUATION_OFFICER".equals(actor.role()))?actor.organizationId():null;
         List<TurnoverRule> rules = jdbcTemplate.query(
                 """
                 SELECT t.tender_number, t.title, tr.description, tr.expected_value
@@ -53,6 +65,8 @@ public class TurnoverEvaluationService {
                 JOIN tenders t ON t.id = b.tender_id
                 JOIN tender_requirements tr ON tr.tender_id = b.tender_id
                 WHERE b.id = ?
+                  AND (CAST(? AS UUID) IS NULL OR t.authority_id = CAST(? AS UUID))
+                  AND t.submission_deadline <= NOW()
                   AND tr.requirement_code = 'MIN_TURNOVER'
                   AND tr.operator = 'GREATER_THAN_OR_EQUAL'
                   AND tr.is_mandatory = TRUE
@@ -63,7 +77,9 @@ public class TurnoverEvaluationService {
                         rs.getString("description"),
                         rs.getString("expected_value")
                 ),
-                bidId
+                bidId,
+                authorityScope,
+                authorityScope
         );
 
         if (rules.isEmpty()) {
@@ -72,14 +88,16 @@ public class TurnoverEvaluationService {
                     "Bid or supported mandatory turnover requirement not found"
             );
         }
+        jdbcTemplate.update("INSERT INTO audit_logs(actor_id,event_type,resource_id,outcome) VALUES (?,?,?,'SUCCESS')",actor==null?null:actor.id(),"EVALUATION_EXECUTED",bidId);
 
         TurnoverRule rule = rules.getFirst();
         BigDecimal requiredAmount = parseRequiredAmount(rule.expectedValue());
 
         List<Document> financialEvidence = evidenceService.searchEvidence(
                 bidId,
-                "three-year average annual turnover financial capacity INR"
+                "annual turnover"
         );
+        log.debug("Retrieved {} financial evidence chunks for bid {}", financialEvidence.size(), bidId);
         List<Document> tenderEvidence = evidenceService.searchEvidence(
                 bidId,
                 "tender reference number tender number project title"
@@ -94,12 +112,20 @@ public class TurnoverEvaluationService {
             }
 
             Matcher matcher = AVERAGE_PATTERN.matcher(content);
-            if (!matcher.find()) {
+            boolean amountFound = matcher.find();
+            log.debug(
+                    "Turnover extraction checked evidence page={} chunkIndex={}; matched={}",
+                    document.getMetadata().get("pageNumber"),
+                    document.getMetadata().get("chunkIndex"),
+                    amountFound
+            );
+            if (!amountFound) {
                 continue;
             }
 
             BigDecimal value = new BigDecimal(matcher.group(1).replace(",", ""));
-            BigDecimal multiplier = matcher.group(2).equalsIgnoreCase("crore")
+            String unit = matcher.group(2).toLowerCase(java.util.Locale.ROOT);
+            BigDecimal multiplier = unit.startsWith("crore")
                     ? CRORE_IN_RUPEES
                     : LAKH_IN_RUPEES;
             BigDecimal declaredAmount = value.multiply(multiplier);

@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @Profile("dev")
@@ -26,6 +28,7 @@ public class BidDocumentController {
     }
 
     @PostMapping(value = "/{bidId}/documents", consumes = "multipart/form-data")
+    @PreAuthorize("hasRole('BIDDER')")
     @ResponseStatus(HttpStatus.CREATED)
     public BidDocumentResponse uploadDocument(
             @PathVariable UUID bidId,
@@ -33,4 +36,8 @@ public class BidDocumentController {
     ) {
         return documentService.uploadDocument(bidId, file);
     }
+
+    @GetMapping("/{bidId}/documents")
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','PROCUREMENT_OFFICER','EVALUATION_OFFICER','BIDDER')")
+    public java.util.List<BidDocumentResponse> getDocuments(@PathVariable UUID bidId){return documentService.getDocuments(bidId);}
 }

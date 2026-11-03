@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.UUID;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/api/v1/tenders")
@@ -29,6 +30,7 @@ public class TenderController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','PROCUREMENT_OFFICER')")
     @ResponseStatus(HttpStatus.CREATED)
     public TenderResponse create(@Valid @RequestBody CreateTenderRequest request) {
         return service.createTender(request);
@@ -45,6 +47,7 @@ public class TenderController {
     }
 
     @PatchMapping("/{id}/publish")
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','PROCUREMENT_OFFICER')")
     public TenderResponse publishTender(@PathVariable UUID id) {
         return service.publishTender(id);
     }

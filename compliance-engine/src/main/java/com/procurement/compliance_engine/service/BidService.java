@@ -17,9 +17,15 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
+import com.procurement.compliance_engine.security.CurrentUser;
+import com.procurement.compliance_engine.security.UserPrincipal;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Service
 public class BidService {
+
+    @Autowired private JdbcTemplate jdbcTemplate;
 
     private final BidRepository bidRepository;
     private final TenderRepository tenderRepository;
@@ -39,7 +45,7 @@ public class BidService {
     public BidResponse submitBid(UUID tenderId, SubmitBidRequest request) {
         Bid bid = createBid(tenderId, request, "SUBMITTED");
         bid.setSubmittedAt(OffsetDateTime.now());
-        return saveBid(bid);
+        BidResponse saved=saveBid(bid); var actor=CurrentUser.get(); jdbcTemplate.update("INSERT INTO audit_logs(actor_id,event_type,resource_id,outcome) VALUES (?,?,?,'SUCCESS')",actor==null?null:actor.id(),"BID_SUBMITTED",saved.id()); return saved;
     }
 
     @Transactional
@@ -49,13 +55,14 @@ public class BidService {
 
     @Transactional
     public BidResponse submitDraftBid(UUID bidId) {
-        Bid bid = bidRepository.findById(bidId)
+        UserPrincipal actor=CurrentUser.get();
+        if(actor==null || !"BIDDER".equals(actor.role())) throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Bidder account required");
+        Bid bid = bidRepository.findDraftByIdAndBidderOrganization(bidId, actor.organizationId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Bid not found"));
 
         if (!"DRAFT".equals(bid.getStatus())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Only DRAFT bids can be submitted");
         }
-
         ensureTenderAcceptsBids(bid.getTender());
         bid.setStatus("SUBMITTED");
         bid.setSubmittedAt(OffsetDateTime.now());
@@ -63,6 +70,8 @@ public class BidService {
     }
 
     private Bid createBid(UUID tenderId, SubmitBidRequest request, String status) {
+        UserPrincipal actor=CurrentUser.get();
+        if(actor==null || !"BIDDER".equals(actor.role())) throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Bid submission requires a bidder account");
         Tender tender = tenderRepository.findById(tenderId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
@@ -71,8 +80,8 @@ public class BidService {
 
         ensureTenderAcceptsBids(tender);
 
-        BidderProfile bidderProfile = bidderProfileRepository
-                .findById(request.bidderProfileId())
+        var profileQuery = bidderProfileRepository.findByOrganizationId(actor.organizationId());
+        BidderProfile bidderProfile = profileQuery
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "Bidder profile not found"
@@ -84,6 +93,7 @@ public class BidService {
                     "Only BIDDER organizations can submit bids"
             );
         }
+        if(!bidderProfile.getOrganization().getId().equals(actor.organizationId())) throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Bidders may submit bids only for their own organization");
 
         if (bidRepository.existsByTenderIdAndBidderId(tenderId, bidderProfile.getId())) {
             throw new ResponseStatusException(
@@ -126,11 +136,14 @@ public class BidService {
 
     @Transactional(readOnly = true)
     public List<BidResponse> getBidsByTender(UUID tenderId) {
-        if (!tenderRepository.existsById(tenderId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Tender not found");
-        }
-
-        return bidRepository.findByTenderId(tenderId)
+        UserPrincipal actor=CurrentUser.get();
+        if(actor==null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Authentication required");
+        List<Bid> results;
+        if ("SYSTEM_ADMIN".equals(actor.role())) results=bidRepository.findByTenderId(tenderId);
+        else if ("BIDDER".equals(actor.role())) results=bidRepository.findAllByTenderAndBidderOrganization(tenderId, actor.organizationId());
+        else if ("PROCUREMENT_OFFICER".equals(actor.role()) || "EVALUATION_OFFICER".equals(actor.role())) results=bidRepository.findAllByTenderAndAuthorityAfterDeadline(tenderId, actor.organizationId());
+        else results=List.of();
+        return results
                 .stream()
                 .map(BidResponse::from)
                 .toList();
@@ -138,8 +151,19 @@ public class BidService {
 
     @Transactional(readOnly = true)
     public BidResponse getBidById(UUID bidId) {
-        Bid bid = bidRepository.findById(bidId)
+        UserPrincipal actor=CurrentUser.get();
+        if(actor==null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Authentication required");
+        var scoped = "SYSTEM_ADMIN".equals(actor.role()) ? bidRepository.findById(bidId)
+                : "BIDDER".equals(actor.role()) ? bidRepository.findByIdAndBidderOrganization(bidId, actor.organizationId())
+                : ("PROCUREMENT_OFFICER".equals(actor.role()) || "EVALUATION_OFFICER".equals(actor.role())) ? bidRepository.findByIdAndAuthorityAfterDeadline(bidId, actor.organizationId())
+                : java.util.Optional.<Bid>empty();
+        Bid bid = scoped
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Bid not found"));
         return BidResponse.from(bid);
     }
+
+    @Transactional(readOnly = true)
+    public List<BidResponse> getMyBids(){ UserPrincipal actor=CurrentUser.get(); if(actor==null||!"BIDDER".equals(actor.role())) throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Bidder account required"); return bidRepository.findAllByBidderOrganizationId(actor.organizationId()).stream().map(BidResponse::from).toList(); }
+    @Transactional(readOnly = true)
+    public List<BidResponse> getVisibleBids(){UserPrincipal actor=CurrentUser.get();if(actor==null)return List.of();List<Bid> rows="SYSTEM_ADMIN".equals(actor.role())?bidRepository.findAll():"BIDDER".equals(actor.role())?bidRepository.findAllByBidderOrganizationId(actor.organizationId()):("PROCUREMENT_OFFICER".equals(actor.role())||"EVALUATION_OFFICER".equals(actor.role()))?bidRepository.findAllVisibleToAuthority(actor.organizationId()):List.of();return rows.stream().map(BidResponse::from).toList();}
 }

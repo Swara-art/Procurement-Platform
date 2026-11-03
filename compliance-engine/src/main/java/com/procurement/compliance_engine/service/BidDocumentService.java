@@ -24,6 +24,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.UUID;
+import com.procurement.compliance_engine.security.CurrentUser;
 
 @Service
 @Profile("dev")
@@ -51,7 +52,9 @@ public class BidDocumentService {
 
     @Transactional
     public BidDocumentResponse uploadDocument(UUID bidId, MultipartFile file) {
-        Bid bid = bidRepository.findById(bidId)
+        var actor=CurrentUser.get();
+        if(actor==null || !"BIDDER".equals(actor.role())) throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Bidder account required");
+        Bid bid = bidRepository.findByIdAndBidderOrganization(bidId, actor.organizationId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Bid not found"));
 
         if (file == null || file.isEmpty()) {
@@ -124,6 +127,22 @@ public class BidDocumentService {
                 }
             }
         }
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.List<BidDocumentResponse> getDocuments(UUID bidId) {
+        var actor=CurrentUser.get();
+        if(actor==null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Authentication required");
+        java.util.List<BidDocument> documents;
+        if("SYSTEM_ADMIN".equals(actor.role())) documents=documentRepository.findByBidId(bidId);
+        else if("BIDDER".equals(actor.role())) {
+            if(!bidRepository.existsByIdAndBidderOrganization(bidId,actor.organizationId())) throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Bid not found");
+            documents=documentRepository.findByBidAndBidderOrganization(bidId,actor.organizationId());
+        } else if("PROCUREMENT_OFFICER".equals(actor.role())||"EVALUATION_OFFICER".equals(actor.role())) {
+            if(!bidRepository.existsByIdAndAuthorityAfterDeadline(bidId,actor.organizationId())) throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Bid not found");
+            documents=documentRepository.findByBidAndAuthorityAfterDeadline(bidId,actor.organizationId());
+        } else throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Access denied");
+        return documents.stream().map(BidDocumentResponse::from).toList();
     }
 
     private static String safeOriginalFilename(String filename) {

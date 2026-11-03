@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.ai.document.Document;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @Profile("dev & ai")
@@ -27,6 +28,7 @@ public class EvidenceRetrievalController {
     }
 
     @GetMapping("/search")
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','PROCUREMENT_OFFICER','EVALUATION_OFFICER','BIDDER')")
     public List<EvidenceSearchResponse> search(
             @PathVariable UUID bidId,
             @RequestParam String query

@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/api/v1/organizations")
@@ -22,6 +23,7 @@ public class BidderProfileController {
     }
 
     @PostMapping("/{organizationId}/bidder-profile")
+    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
     @ResponseStatus(HttpStatus.CREATED)
     public BidderProfileResponse create(@PathVariable UUID organizationId) {
         return service.createProfile(organizationId);

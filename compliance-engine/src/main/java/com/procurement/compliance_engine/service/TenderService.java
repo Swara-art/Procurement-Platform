@@ -17,9 +17,15 @@ import java.util.List;
 import java.util.Locale;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import com.procurement.compliance_engine.security.CurrentUser;
+import com.procurement.compliance_engine.security.UserPrincipal;
 
 @Service
 public class TenderService {
+
+    @Autowired private JdbcTemplate jdbcTemplate;
 
     private final TenderRepository tenderRepository;
     private final OrganizationRepository organizationRepository;
@@ -42,7 +48,10 @@ public class TenderService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Tender number already exists");
         }
 
-        Organization authority = organizationRepository.findById(request.procurementAuthorityId())
+        UserPrincipal actor=CurrentUser.get();
+        if(actor==null || !("PROCUREMENT_OFFICER".equals(actor.role())||"SYSTEM_ADMIN".equals(actor.role()))) throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Tender creation requires a procurement officer or system administrator");
+        UUID authorityId=actor!=null && "PROCUREMENT_OFFICER".equals(actor.role()) ? actor.organizationId() : request.procurementAuthorityId();
+        Organization authority = organizationRepository.findById(authorityId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "Procurement authority not found"
@@ -54,6 +63,7 @@ public class TenderService {
                     "Organization must be a procurement authority"
             );
         }
+        if(actor!=null && "PROCUREMENT_OFFICER".equals(actor.role()) && !authority.getId().equals(actor.organizationId())) throw new ResponseStatusException(HttpStatus.FORBIDDEN,"You may create tenders only for your authority");
 
         Tender tender = new Tender();
         tender.setTenderNumber(tenderNumber);
@@ -77,11 +87,10 @@ public class TenderService {
 
     @Transactional(readOnly = true)
     public List<TenderResponse> getAllTenders(String status) {
-        List<Tender> tenders;
+        String normalizedStatus = null;
         if (status == null || status.isBlank()) {
-            tenders = tenderRepository.findAll();
         } else {
-            String normalizedStatus = status.trim().toUpperCase(Locale.ROOT);
+            normalizedStatus = status.trim().toUpperCase(Locale.ROOT);
             if ("OPEN".equals(normalizedStatus)) {
                 normalizedStatus = "PUBLISHED";
             }
@@ -91,26 +100,46 @@ public class TenderService {
                         "Status must be DRAFT, OPEN, PUBLISHED, CLOSED, or CANCELLED"
                 );
             }
-            tenders = tenderRepository.findByStatus(normalizedStatus);
+        }
+        UserPrincipal actor=CurrentUser.get();
+        if(actor==null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Authentication required");
+        List<Tender> tenders;
+        if (actor != null && "BIDDER".equals(actor.role())) {
+            tenders = normalizedStatus != null && !"PUBLISHED".equals(normalizedStatus)
+                    ? List.of() : tenderRepository.findByStatus("PUBLISHED");
+        } else if (actor != null && ("PROCUREMENT_OFFICER".equals(actor.role()) || "EVALUATION_OFFICER".equals(actor.role()))) {
+            tenders = normalizedStatus == null
+                    ? tenderRepository.findByAuthorityId(actor.organizationId())
+                    : tenderRepository.findByStatusAndAuthorityId(normalizedStatus, actor.organizationId());
+        } else {
+            tenders = normalizedStatus == null ? tenderRepository.findAll() : tenderRepository.findByStatus(normalizedStatus);
         }
         return tenders.stream().map(TenderResponse::from).toList();
     }
 
     @Transactional(readOnly = true)
     public TenderResponse getTenderById(UUID id) {
-        Tender tender = tenderRepository.findById(id)
+        UserPrincipal actor=CurrentUser.get();
+        Tender tender = scopedTenderById(id, actor)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tender not found"));
+        assertCanView(tender);
         return TenderResponse.from(tender);
+    }
+
+    @Transactional(readOnly = true)
+    public Tender getTenderEntity(UUID id) {
+        return scopedTenderById(id, CurrentUser.get()).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,"Tender not found"));
     }
 
     @Transactional
     public TenderResponse publishTender(UUID tenderId) {
-        Tender tender = tenderRepository.findById(tenderId)
+        UserPrincipal actor=CurrentUser.get();
+        if(actor==null || !("PROCUREMENT_OFFICER".equals(actor.role())||"SYSTEM_ADMIN".equals(actor.role()))) throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Tender publication requires a procurement officer or system administrator");
+        Tender tender = scopedTenderById(tenderId, actor)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "Tender not found"
                 ));
-
         if (!"DRAFT".equals(tender.getStatus())) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
@@ -133,6 +162,21 @@ public class TenderService {
         }
 
         tender.setStatus("PUBLISHED");
+        jdbcTemplate.update("INSERT INTO audit_logs(actor_id,event_type,resource_id,outcome) VALUES (?,?,?,'SUCCESS')",actor==null?null:actor.id(),"TENDER_PUBLISHED",tenderId);
         return TenderResponse.from(tenderRepository.saveAndFlush(tender));
+    }
+
+    public void assertCanView(Tender tender) {
+        UserPrincipal actor=CurrentUser.get(); if(actor==null)return;
+        if("BIDDER".equals(actor.role()) && !"PUBLISHED".equals(tender.getStatus())) throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Tender not found");
+        if(("PROCUREMENT_OFFICER".equals(actor.role())||"EVALUATION_OFFICER".equals(actor.role())) && !tender.getAuthority().getId().equals(actor.organizationId())) throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Tender belongs to another authority");
+    }
+
+    private java.util.Optional<Tender> scopedTenderById(UUID id, UserPrincipal actor) {
+        if (actor == null) return java.util.Optional.empty();
+        if ("SYSTEM_ADMIN".equals(actor.role())) return tenderRepository.findById(id);
+        if ("BIDDER".equals(actor.role())) return tenderRepository.findByIdAndStatus(id, "PUBLISHED");
+        if ("PROCUREMENT_OFFICER".equals(actor.role()) || "EVALUATION_OFFICER".equals(actor.role())) return tenderRepository.findByIdAndAuthorityId(id, actor.organizationId());
+        return java.util.Optional.empty();
     }
 }
