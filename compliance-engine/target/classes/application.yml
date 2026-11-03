@@ -55,6 +55,12 @@ jwt:
   secret: ${JWT_SECRET}
 
 app:
+  classification:
+    provider: ${CLASSIFICATION_PROVIDER:rules}
+    groq:
+      api-key: ${GROQ_API_KEY:}
+      endpoint: ${GROQ_API_ENDPOINT:https://api.groq.com/openai/v1}
+      model: ${GROQ_CLASSIFICATION_MODEL:llama-3.3-70b-versatile}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
   auth:
@@ -65,4 +71,14 @@ app:
     bootstrap-admin-organization-id: ${BOOTSTRAP_ADMIN_ORGANIZATION_ID:}
 
   storage:
+    provider: ${STORAGE_PROVIDER:local}
+    scan-required: ${DOCUMENT_MALWARE_SCAN_REQUIRED:true}
     upload-dir: ${APP_UPLOAD_DIR:./private-uploads}
+    max-file-size-bytes: ${DOCUMENT_MAX_FILE_SIZE_BYTES:26214400}
+    s3:
+      bucket: ${DOCUMENT_BUCKET:procurement-private}
+      region: ${AWS_REGION:ap-south-1}
+      endpoint: ${S3_ENDPOINT:}
+      access-key: ${S3_ACCESS_KEY:}
+      secret-key: ${S3_SECRET_KEY:}
+      kms-key-id: ${S3_KMS_KEY_ID:}

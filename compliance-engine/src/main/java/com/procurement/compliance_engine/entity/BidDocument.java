@@ -46,6 +46,15 @@ public class BidDocument {
     @Column(name = "sha256_hash", nullable = false, length = 64)
     private String sha256Hash;
 
+    @Column(name="document_type",nullable=false,length=30) private String documentType="COMPLIANCE";
+    @Column(name="storage_provider",nullable=false,length=20) private String storageProvider="LOCAL";
+    @Column(name="bucket_identifier") private String bucketIdentifier;
+    @Column(name="verification_status",nullable=false,length=24) private String verificationStatus="PENDING";
+    @Column(name="processing_status",nullable=false,length=24) private String processingStatus="PENDING";
+    @Column(name="version",nullable=false) private Integer version=1;
+    @Column(name="superseded_at") private OffsetDateTime supersededAt;
+    @Column(name="uploaded_by") private UUID uploadedBy;
+
     @Column(name = "uploaded_at", nullable = false, insertable = false, updatable = false)
     @Generated(event = EventType.INSERT)
     private OffsetDateTime uploadedAt;

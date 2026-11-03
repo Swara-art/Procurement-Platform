@@ -21,6 +21,7 @@ import { tendersApi } from '../api/tendersApi';
 import { bidsApi } from '../api/bidsApi';
 import { organizationsApi } from '../api/organizationsApi';
 import { useAuth } from '../context/AuthContext';
+import { apiClient } from '../api/client';
 
 export const TenderDetailsPage: React.FC = () => {
   const { id = '' } = useParams<{ id: string }>();
@@ -28,7 +29,10 @@ export const TenderDetailsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'requirements' | 'bids' | 'results'>('overview');
+  const isOfficerOrAdmin = user?.role === 'PROCUREMENT_OFFICER' || user?.role === 'SYSTEM_ADMIN';
+
+  const [activeTab, setActiveTab] = useState<'overview' | 'requirements' | 'bids' | 'results' | 'classification'>('overview');
+  const [sectorDraft,setSectorDraft]=useState<string[]>([]);
   const [showPublishDialog, setShowPublishDialog] = useState(false);
   const [showAddReqModal, setShowAddReqModal] = useState(false);
   const [quotedAmount, setQuotedAmount] = useState('');
@@ -63,6 +67,9 @@ export const TenderDetailsPage: React.FC = () => {
         : Promise.resolve(null),
     enabled: !!tender?.procurementAuthorityId,
   });
+  const {data:classification}=useQuery<{status:string;modelVersion:string;lastError:string;sectors:{code:string;label:string;relevanceScore:number;confirmed:boolean;source:string}[]}>({queryKey:['classification',id],queryFn:async()=>(await apiClient.get(`/tenders/${id}/classification`)).data,enabled:!!id&&isOfficerOrAdmin,refetchInterval:q=>['PENDING','PROCESSING'].includes(q.state.data?.status||'')?2500:false});
+  const queueClassification=useMutation({mutationFn:()=>apiClient.post(`/tenders/${id}/classify`),onSuccess:()=>queryClient.invalidateQueries({queryKey:['classification',id]})});
+  const confirmClassification=useMutation({mutationFn:(sectors:string[])=>apiClient.put(`/tenders/${id}/classification/confirm`,{sectors}),onSuccess:()=>{queryClient.invalidateQueries({queryKey:['classification',id]});setSectorDraft([]);}});
 
   // Publish Tender Mutation
   const publishMutation = useMutation({
@@ -87,7 +94,6 @@ export const TenderDetailsPage: React.FC = () => {
     );
   }
 
-  const isOfficerOrAdmin = user?.role === 'PROCUREMENT_OFFICER' || user?.role === 'SYSTEM_ADMIN';
   const hasSubmittedBid = bids.length > 0;
 
   const tabs = [
@@ -95,6 +101,7 @@ export const TenderDetailsPage: React.FC = () => {
     { id: 'requirements', label: `Requirements (${requirements.length})` },
     { id: 'bids', label: `Submitted Bids (${bids.length})` },
     { id: 'results', label: 'Evaluation Results' },
+    ...(isOfficerOrAdmin?[{id:'classification',label:'Sector classification'}]:[]),
   ];
 
   return (
@@ -446,6 +453,16 @@ export const TenderDetailsPage: React.FC = () => {
         </div>
       )}
 
+      {activeTab === 'classification' && isOfficerOrAdmin && (
+        <section className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+          <div className="flex items-start justify-between gap-3"><div><h3 className="text-sm font-bold">Supplier-sector classification</h3><p className="mt-1 text-xs text-slate-500">Scores indicate model relevance, not calibrated probability. Review and confirm the sectors before recommendations use them.</p></div><button disabled={queueClassification.isPending} onClick={()=>queueClassification.mutate()} className="px-3 py-2 bg-navy-900 text-white rounded text-xs">{classification?'Reclassify':'Classify tender'}</button></div>
+          {classification?.status&&<p className="text-xs">Status: <span className="font-semibold">{classification.status.replaceAll('_',' ')}</span> · Model: {classification.modelVersion||'pending'}</p>}
+          {classification?.lastError&&<p className="text-xs text-rose-700">{classification.lastError}</p>}
+          {(classification?.sectors??[]).length>0?<div className="space-y-2">{(classification?.sectors??[]).map(s=><label key={s.code} className="flex items-center justify-between gap-3 p-3 rounded border"><span className="flex items-center gap-2 text-xs"><input type="checkbox" checked={sectorDraft.length?sectorDraft.includes(s.code):s.confirmed||['REVIEW_REQUIRED','COMPLETED'].includes(classification?.status??'' )} onChange={e=>{const base=sectorDraft.length?sectorDraft:(classification?.sectors??[]).filter(x=>x.confirmed).map(x=>x.code);setSectorDraft(e.target.checked?[...new Set([...base,s.code])]:base.filter(x=>x!==s.code));}}/>{s.label}{s.confirmed&&<span className="text-emerald-700">Confirmed</span>}</span><span className="text-[10px] text-slate-500">{s.source} · relevance {Number(s.relevanceScore).toFixed(2)}</span></label>)}<button disabled={confirmClassification.isPending||!['REVIEW_REQUIRED','COMPLETED'].includes(classification?.status??'' )} onClick={()=>{if(!sectorDraft.length)setSectorDraft((classification?.sectors??[]).filter(s=>s.confirmed).map(s=>s.code));confirmClassification.mutate(sectorDraft.length?sectorDraft:(classification?.sectors??[]).filter(s=>s.confirmed).map(s=>s.code));}} className="px-4 py-2 bg-emerald-700 text-white rounded text-xs disabled:opacity-50">{confirmClassification.isPending?'Saving…':'Confirm selected sectors'}</button></div>:<p className="text-xs text-slate-500">No prediction is available yet. Queue classification to generate review suggestions.</p>}
+          {(queueClassification.isError||confirmClassification.isError)&&<p className="text-xs text-rose-700">Classification request failed. Check your tender authority access and try again.</p>}
+        </section>
+      )}
+
       {/* Confirmation Dialog for Publishing Tender */}
       <ConfirmationDialog
         isOpen={showPublishDialog}
@@ -469,3 +486,6 @@ export const TenderDetailsPage: React.FC = () => {
     </div>
   );
 };
+
+
+

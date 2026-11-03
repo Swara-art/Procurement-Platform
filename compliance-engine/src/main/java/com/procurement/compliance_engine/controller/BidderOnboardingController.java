@@ -1,0 +1,4 @@
+package com.procurement.compliance_engine.controller;
+import com.procurement.compliance_engine.dto.*;import com.procurement.compliance_engine.service.BidderOnboardingService;import jakarta.validation.Valid;import org.springframework.security.access.prepost.PreAuthorize;import org.springframework.web.bind.annotation.*;
+@RestController @RequestMapping("/api/v1/bidder/onboarding") @PreAuthorize("hasRole('BIDDER')")
+public class BidderOnboardingController {private final BidderOnboardingService service;public BidderOnboardingController(BidderOnboardingService s){service=s;}@GetMapping public BidderOnboardingResponse get(){return service.get();}@PutMapping public BidderOnboardingResponse save(@Valid @RequestBody BidderOnboardingRequest r){return service.save(r);}@PostMapping("/submit") public BidderOnboardingResponse submit(){return service.submit();}}

@@ -17,6 +17,8 @@ import { ReportsPage } from './pages/ReportsPage';
 import { OrganizationsPage } from './pages/OrganizationsPage';
 import { UserManagementPage } from './pages/UserManagementPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { BidderOnboardingPage } from './pages/BidderOnboardingPage';
+import { BidderRecommendedTendersPage } from './pages/BidderRecommendedTendersPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -70,6 +72,8 @@ export const App: React.FC = () => {
               <Route path="tenders/create" element={<ProtectedRoute roles={['SYSTEM_ADMIN','PROCUREMENT_OFFICER']}><CreateTenderPage /></ProtectedRoute>} />
               <Route path="tenders/:id" element={<TenderDetailsPage />} />
               <Route path="bids" element={<ProtectedRoute roles={['SYSTEM_ADMIN','PROCUREMENT_OFFICER','BIDDER']}><BidsPage /></ProtectedRoute>} />
+              <Route path="bidder/onboarding" element={<ProtectedRoute roles={['BIDDER']}><BidderOnboardingPage /></ProtectedRoute>} />
+              <Route path="bidder/recommended" element={<ProtectedRoute roles={['BIDDER']}><BidderRecommendedTendersPage /></ProtectedRoute>} />
               <Route path="bids/:id" element={<BidDetailsPage />} />
               <Route path="evaluations" element={<ProtectedRoute roles={['SYSTEM_ADMIN','PROCUREMENT_OFFICER','EVALUATION_OFFICER']}><EvaluationPage /></ProtectedRoute>} />
               <Route path="evaluations/:bidId" element={<ProtectedRoute roles={['SYSTEM_ADMIN','PROCUREMENT_OFFICER','EVALUATION_OFFICER']}><EvaluationPage /></ProtectedRoute>} />

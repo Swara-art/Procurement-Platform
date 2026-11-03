@@ -1,0 +1,10 @@
+app:
+  storage:
+    provider: ${STORAGE_PROVIDER:s3}
+    scan-required: ${DOCUMENT_MALWARE_SCAN_REQUIRED:false}
+    s3:
+      endpoint: ${S3_ENDPOINT:http://localhost:9000}
+      access-key: ${S3_ACCESS_KEY:minio-local}
+      secret-key: ${S3_SECRET_KEY:minio-local-secret-change-me}
+      bucket: ${DOCUMENT_BUCKET:procurement-private}
+      region: ${AWS_REGION:us-east-1}

@@ -26,7 +26,7 @@ public class SecurityConfig {
    .sessionManagement(s->s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
    .formLogin(f->f.disable()).httpBasic(h->h.disable())
    .exceptionHandling(e->e.authenticationEntryPoint((req,res,ex)->res.sendError(HttpServletResponse.SC_UNAUTHORIZED,"Unauthorized")))
-   .authorizeHttpRequests(a->a.requestMatchers("/error","/actuator/health","/api/v1/auth/csrf","/api/v1/auth/register","/api/v1/auth/login").permitAll()
+   .authorizeHttpRequests(a->a.requestMatchers("/error","/actuator/health","/api/v1/company-types/**","/api/v1/auth/csrf","/api/v1/auth/register","/api/v1/auth/login").permitAll()
       .requestMatchers("/api/v1/auth/refresh","/api/v1/auth/logout").permitAll().anyRequest().authenticated())
    .addFilterBefore(new JwtAuthenticationFilter(jwt,users),UsernamePasswordAuthenticationFilter.class);
   return http.build();

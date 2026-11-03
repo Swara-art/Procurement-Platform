@@ -11,6 +11,8 @@ import {
   LogOut,
   Shield,
   User as UserIcon,
+  UploadCloud,
+  Target,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -34,6 +36,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     if (user?.role === 'EVALUATION_OFFICER') return ['Dashboard','Tenders','Bids','Evaluations','Reports'].includes(item.label);
     return true;
   });
+  if(user?.role==='BIDDER') mainNavItems.splice(2,0,{label:'Recommended',path:'/bidder/recommended',icon:Target},{label:'Onboarding & Documents',path:'/bidder/onboarding',icon:UploadCloud});
 
   const adminNavItems = [
     { label: 'Organizations', path: '/organizations', icon: Building2 },

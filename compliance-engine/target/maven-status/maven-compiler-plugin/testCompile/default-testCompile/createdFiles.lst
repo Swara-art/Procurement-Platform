@@ -1,3 +1,6 @@
-com\procurement\compliance_engine\ComplianceEngineApplicationTests.class
-com\procurement\compliance_engine\security\JwtServiceTest.class
 com\procurement\compliance_engine\service\PdfChunkingServiceTest.class
+com\procurement\compliance_engine\classification\RuleBasedTenderClassifierTest.class
+com\procurement\compliance_engine\ComplianceEngineApplicationTests.class
+com\procurement\compliance_engine\service\S3DocumentStorageServiceTest.class
+com\procurement\compliance_engine\security\JwtServiceTest.class
+com\procurement\compliance_engine\service\LocalDocumentStorageServiceTest.class

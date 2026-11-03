@@ -12,6 +12,7 @@ import java.util.UUID;
 public interface BidDocumentRepository extends JpaRepository<BidDocument, UUID> {
 
     List<BidDocument> findByBidId(UUID bidId);
+    List<BidDocument> findByBidIdAndSupersededAtIsNull(UUID bidId);
 
     @Query("select d from BidDocument d where d.bid.id = :bidId and d.bid.bidder.organization.id = :organizationId")
     List<BidDocument> findByBidAndBidderOrganization(@Param("bidId") UUID bidId, @Param("organizationId") UUID organizationId);

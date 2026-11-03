@@ -30,15 +30,18 @@ public class TenderService {
     private final TenderRepository tenderRepository;
     private final OrganizationRepository organizationRepository;
     private final TenderRequirementRepository requirementRepository;
+    private final TenderClassificationService classificationService;
 
     public TenderService(
             TenderRepository tenderRepository,
             OrganizationRepository organizationRepository,
-            TenderRequirementRepository requirementRepository
+            TenderRequirementRepository requirementRepository,
+            TenderClassificationService classificationService
     ) {
         this.tenderRepository = tenderRepository;
         this.organizationRepository = organizationRepository;
         this.requirementRepository = requirementRepository;
+        this.classificationService = classificationService;
     }
 
     @Transactional
@@ -75,7 +78,9 @@ public class TenderService {
         tender.setStatus("DRAFT");
 
         try {
-            return TenderResponse.from(tenderRepository.saveAndFlush(tender));
+            Tender saved=tenderRepository.saveAndFlush(tender);
+            classificationService.enqueue(saved,false);
+            return TenderResponse.from(saved);
         } catch (DataIntegrityViolationException ex) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,

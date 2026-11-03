@@ -1,0 +1,5 @@
+package com.procurement.compliance_engine.dto;
+import java.util.*;import java.math.BigDecimal;import java.time.LocalDate;
+public record BidderOnboardingResponse(String legalName,String entityType,String registrationNumber,String businessAddress,String contactNumber,String panNumber,String gstin,boolean gstApplicable,String primarySector,List<String> additionalSectors,List<String> capabilities,LocalDate establishmentDate,Integer experienceYears,Integer completedProjects,List<Turnover> turnovers,String authorizedSignatoryName,String authorizedSignatoryEmail,String onboardingStatus,List<DocumentChecklistItem> documentChecklist,String cin,String llpin,boolean governmentOwned,boolean firmRegistered,boolean representativeIsSignatory,boolean msmeBenefitClaimed,boolean shopRegistrationApplicable,boolean businessLicenseAvailable,boolean incorporatedEntity,boolean panApplicable,boolean section8TaxRegistrationApplicable){
+ public record Turnover(String financialYear,BigDecimal annualTurnover){}
+}

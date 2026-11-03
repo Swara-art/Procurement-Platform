@@ -14,8 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Files;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -36,18 +36,18 @@ public class DocumentIndexingService {
     private final BidDocumentRepository documentRepository;
     private final PdfChunkingService pdfChunkingService;
     private final VectorStore vectorStore;
-    private final Path uploadRoot;
+    private final DocumentStorageService storage;
 
     public DocumentIndexingService(
             BidDocumentRepository documentRepository,
             PdfChunkingService pdfChunkingService,
             VectorStore vectorStore,
-            @Value("${app.storage.upload-dir:./private-uploads}") String uploadDirectory
+            DocumentStorageService storage
     ) {
         this.documentRepository = documentRepository;
         this.pdfChunkingService = pdfChunkingService;
         this.vectorStore = vectorStore;
-        this.uploadRoot = Path.of(uploadDirectory).toAbsolutePath().normalize();
+        this.storage = storage;
     }
 
     @Transactional
@@ -62,28 +62,22 @@ public class DocumentIndexingService {
                     : java.util.Optional.<BidDocument>empty();
             BidDocument bidDocument = scopedDocument
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found"));
+            if(!"AVAILABLE".equals(bidDocument.getProcessingStatus())) throw new ResponseStatusException(HttpStatus.LOCKED,"Document has not cleared malware scanning");
             log.info("Document found; storage key={}", bidDocument.getStorageKey());
 
             stage = "resolving stored PDF";
-            Path filePath = uploadRoot.resolve(bidDocument.getStorageKey()).normalize();
-            if (!filePath.startsWith(uploadRoot)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid storage path");
-            }
-            boolean pdfExists = Files.isRegularFile(filePath);
-            log.info("Resolved PDF path; file exists={}", pdfExists);
-            if (!pdfExists) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Stored PDF not found");
-            }
-
             stage = "verifying stored PDF hash";
-            byte[] fileBytes = Files.readAllBytes(filePath);
+            byte[] fileBytes = storage.get(bidDocument.getStorageKey());
             if (!sha256(fileBytes).equalsIgnoreCase(bidDocument.getSha256Hash())) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Stored PDF hash does not match its metadata");
             }
             log.info("Stored PDF hash verified for document {}", documentId);
 
             stage = "extracting PDF text and creating chunks";
-            List<PdfChunkingService.PdfChunk> chunks = pdfChunkingService.extractAndChunk(filePath);
+            Path filePath=Files.createTempFile("procurement-index-", ".pdf");
+            List<PdfChunkingService.PdfChunk> chunks;
+            try { Files.write(filePath,fileBytes); chunks=pdfChunkingService.extractAndChunk(filePath); }
+            finally { Files.deleteIfExists(filePath); }
             log.info("PDF extraction completed for document {}; chunks={}", documentId, chunks.size());
             if (chunks.isEmpty()) {
                 throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "No extractable text found in PDF");
@@ -95,6 +89,9 @@ public class DocumentIndexingService {
                 Map<String, Object> metadata = new HashMap<>();
                 metadata.put("documentId", documentId.toString());
                 metadata.put("bidId", bidId.toString());
+                metadata.put("organizationId",bidDocument.getBid().getBidder().getOrganization().getId().toString());
+                metadata.put("documentType",bidDocument.getDocumentType());
+                metadata.put("extractionVersion","pdf-chunk-v1");
                 metadata.put("pageNumber", chunk.pageNumber());
                 metadata.put("chunkIndex", chunk.chunkIndex());
                 metadata.put("sha256", bidDocument.getSha256Hash());
